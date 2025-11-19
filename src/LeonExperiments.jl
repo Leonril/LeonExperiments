@@ -1,10 +1,14 @@
+# src/LeonExperiments.jl
+
 module LeonExperiments
 
+# Import everything from Comodo
 using Comodo
 
-function demo()
-    println("Running MyComodoProject with Comodo!")
-    # Example: create a simple 3D mesh or visualization later
-end
+# Export from Comodo
+export Comodo
+
+# Testing check for testing
+hello() = println("Welcome to LeonExperiments. Comodo is ready.")
 
 end # module
