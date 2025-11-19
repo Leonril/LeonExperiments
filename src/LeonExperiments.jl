@@ -8,7 +8,7 @@ using Comodo
 # Export from Comodo
 export Comodo
 
-# Testing check for testing
+# Testing check 
 hello() = println("Welcome to LeonExperiments. Comodo is ready.")
 
 end # module
