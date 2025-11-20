@@ -6,7 +6,7 @@ module LeonExperiments
 using Comodo
 
 # Export from Comodo
-export Comodo
+export Comodo, hello
 
 # Testing check 
 hello() = println("Welcome to LeonExperiments. Comodo is ready.")

@@ -1,2 +1,7 @@
+name = "LeonExperiments"
+uuid = "73de778f-2a0a-4025-929e-85e46414db7c"
+authors = ["Leon Riley <114745825+Leonril@users.noreply.github.com>"]
+version = "0.1.0"
+
 [deps]
 Comodo = "59095408-2761-4f7a-bdc2-044e78630271"
