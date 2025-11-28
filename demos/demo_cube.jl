@@ -2,6 +2,7 @@
 # Description: A demo script to create and display a cube using Comodo.
 
 #using LeonExperiments
+using Comodo
 using GLMakie
 
 F,V = Comodo.cube(7)
