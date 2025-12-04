@@ -41,8 +41,7 @@ if testCase == 1
     save(File_name, surfaceMesh); #Save stl
 
 elseif testCase == 2
-    Vb=batman(50)
-
+    Vb=batman(50) #List of nodes of the Batman logo
 
     fig = Figure(size=(1000,500))
 
@@ -52,6 +51,8 @@ elseif testCase == 2
     hp2 = scatter!(ax1, Vb[1],markersize=15,color=:yellow)
     hp2 = scatter!(ax1, Vb[2],markersize=15,color=:orange)
     fig
+
+    
     #generate F,V of batman 
     #plot batman
     #convert to triangular if needed
