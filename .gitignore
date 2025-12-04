@@ -1,0 +1,6 @@
+# Ignore all files in exports
+exports/
+
+# Ignore OS/IDE temp files
+*.DS_Store
+.vscode/
