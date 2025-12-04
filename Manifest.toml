@@ -2,7 +2,7 @@
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "408ada80d8cd34682aa05beb58855b05ff044c9f"
+project_hash = "628b8e83e2c2bbbef2b98a697dbef81e32cb4efe"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -368,6 +368,14 @@ version = "2.7.3+0"
 git-tree-sha1 = "b309b36a9e02fe7be71270dd8c0fd873625332b4"
 uuid = "411431e0-e8b7-467b-b5e0-f676ba4f2910"
 version = "0.1.6"
+
+[[deps.FEBio]]
+deps = ["XML"]
+git-tree-sha1 = "7306db0bc2a1d8c1e8567fd17e011c46a0a01b66"
+repo-rev = "main"
+repo-url = "https://github.com/febiosoftware/FEBio.jl"
+uuid = "c57eab10-e7d7-41f3-9039-a27761009b26"
+version = "0.1.0"
 
 [[deps.FFMPEG_jll]]
 deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers", "LAME_jll", "Libdl", "Ogg_jll", "OpenSSL_jll", "Opus_jll", "PCRE2_jll", "Zlib_jll", "libaom_jll", "libass_jll", "libfdk_aac_jll", "libvorbis_jll", "x264_jll", "x265_jll"]
@@ -1557,6 +1565,12 @@ deps = ["LinearAlgebra", "SparseArrays"]
 git-tree-sha1 = "c1a7aa6219628fcd757dede0ca95e245c5cd9511"
 uuid = "efce3f68-66dc-5838-9240-27a6d6f5f9b6"
 version = "1.0.0"
+
+[[deps.XML]]
+deps = ["Mmap", "OrderedCollections"]
+git-tree-sha1 = "6791d41872eb990faba2b72bd5e8c3d9035a188a"
+uuid = "72c71f33-b9b6-44de-8c94-c961784809e2"
+version = "0.3.8"
 
 [[deps.XZ_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
