@@ -1,6 +1,6 @@
 # Ignore all files in exports
 exports/
-
+demos/demo_test.jl
 # Ignore OS/IDE temp files
 *.DS_Store
 .vscode/
