@@ -160,24 +160,24 @@ elseif testCase == 3
     dscreen = display(GLMakie.Screen(), fig)
 
     # Even out z height of bottom of berry edges
-    F_keep_cleaned, Vkeep  = remove_unused_vertices(F_keep, VBerry) # Remove unused vertices after face removal
-    FaceConnectivity = con_vertex_face(F_keep_cleaned, Vkeep)# List of how many faces touch each vertex
+    F_keep_cleaned, VBerryTemplate  = remove_unused_vertices(F_keep, VBerry) # Remove unused vertices after face removal
+    FaceConnectivity = con_vertex_face(F_keep_cleaned, VBerryTemplate)# List of how many faces touch each vertex
 
     # Suppose connectivityV[i] is a vector of connected vertices for vertex i
-    edge_indices = [i for i in 1:length(test) if length(FaceConnectivity[i]) < 5] #Edges have less than 5 connected faces
+    edge_indices = [i for i in 1:length(VBerryTemplate) if length(FaceConnectivity[i]) < 5] #Edges have less than 5 connected faces
 
     for i in edge_indices # Update z value of edge vertices from cut faces
-    v = Vkeep[i]
-    Vkeep[i] = Point(v[1], v[2], z_threshold)  # create a new Point with updated z
+    v = VBerryTemplate[i]
+    VBerryTemplate[i] = Point(v[1], v[2], z_threshold)  # create a new Point with updated z
     end
 
-    Vedge = Vkeep[edge_indices] # Store edge vertices 
+    VBerry_Edge = VBerryTemplate[edge_indices] # Store edge vertices 
 
     # Plotting berry with cleaned bottom edges
     fig = Figure(size=(1000,500))
     ax=AxisGeom(fig[1, 1], title="Berry  with cleaned cut ", azimuth=-pi/2, elevation=pi/2)
-    hp1 = Comodo.meshplot!(ax, F_keep_cleaned, Vkeep, color=:red)
-    hp2 = scatter!(ax, Vedge ,markersize=10,color=:blue)
+    hp1 = Comodo.meshplot!(ax, F_keep_cleaned, VBerryTemplate, color=:red)
+    hp2 = scatter!(ax, VBerry_Edge,markersize=10,color=:blue)
     dscreen = display(GLMakie.Screen(), fig)
 
     # Creating the leaf boundary
@@ -281,6 +281,69 @@ elseif testCase == 3
     fig = Figure(size=(1000,500))
     ax=AxisGeom(fig[1, 1], title="Base Boundary Points", azimuth=-pi/2, elevation=pi/2)
     hp1 = scatter!(ax, Vb_Base ,markersize=10,color=:darkgreen)
+    dscreen = display(GLMakie.Screen(), fig)
+
+    # Positioning berries on base
+    VBerry1 = [Point(v[1]+centreBerry1[1], v[2]+centreBerry1[2], v[3]+abs(z_threshold)) for v in VBerryTemplate] # Shift Berrys to new positions
+    VBerry2 = [Point(v[1]+centreBerry2[1], v[2]+centreBerry2[2], v[3]+abs(z_threshold)) for v in VBerryTemplate] # Shift Berrys to new positions
+    VBerry3 = [Point(v[1]+centreBerry3[1], v[2]+centreBerry3[2], v[3]+abs(z_threshold)) for v in VBerryTemplate] # Shift Berrys to new positions
+    
+    VBerry1_Edge =  VBerry1[edge_indices] # Store edge vertices for regiontrimesh
+    VBerry2_Edge =  VBerry2[edge_indices]
+    VBerry3_Edge =  VBerry3[edge_indices]
+
+    fig = Figure(size=(1000,500))
+    ax=AxisGeom(fig[1, 1], title="Base Boundary Points", azimuth=-pi/2, elevation=pi/2)
+    hp1 = scatter!(ax, Vb_Base ,markersize=10,color=:darkgreen)
+    hp2 = scatter!(ax, [VBerry1_Edge;VBerry2_Edge;VBerry3_Edge] ,markersize=10,color=:blue)
+    hp3 = Comodo.meshplot!(ax, F_keep_cleaned, VBerry1, color=:red)
+    hp4 = Comodo.meshplot!(ax, F_keep_cleaned, VBerry2, color=:red)
+    hp5 = Comodo.meshplot!(ax, F_keep_cleaned, VBerry3, color=:red)
+    dscreen = display(GLMakie.Screen(), fig)
+
+    # Put hole in base for string
+    HoleSpacing = 2.0 # distance betweeen two HoleSpacing
+    HoleRadius = 2.0 # radius of hole
+    V_HoleTemplate = circlepoints(HoleRadius,20)
+
+    VHole = [Point(v[1] + radiusBase - (2*HoleRadius), v[2], v[3]) for v in V_HoleTemplate]
+    
+    fig = Figure(size=(1000,500))
+    ax=AxisGeom(fig[1, 1], title="Base Boundary Points", azimuth=-pi/2, elevation=pi/2)
+    hp1 = scatter!(ax, Vb_Base ,markersize=10,color=:darkgreen)
+    hp2 = scatter!(ax, [VBerry1_Edge;VBerry2_Edge;VBerry3_Edge] ,markersize=10,color=:blue)
+    hp3 = Comodo.meshplot!(ax, F_keep_cleaned, VBerry1, color=:red)
+    hp4 = Comodo.meshplot!(ax, F_keep_cleaned, VBerry2, color=:red)
+    hp5 = Comodo.meshplot!(ax, F_keep_cleaned, VBerry3, color=:red)
+    hp6 = scatter!(ax, VHole ,markersize=10,color=:purple)
+    dscreen = display(GLMakie.Screen(), fig)
+
+    # Making underside of ornament
+    HollyThickness = 4.0
+    testCircle = circlepoints(radiusBase,40)
+    VtestCircle_Underside = [Point(v[1], v[2], -HollyThickness) for v in testCircle]
+    Vb_Base_Underside = [Point(v[1], v[2], v[3]-HollyThickness) for v in Vb_Base]
+    VHole_Underside = [Point(v[1], v[2], v[3]-HollyThickness) for v in VHole]
+
+    # Setting up regiontrimesh inputs
+    #VT_top = [copy(Vb_Base),copy(VBerry1_Edge),copy(VBerry2_Edge),copy(VBerry3_Edge),copy(VHole),] # Tuple of the vertex array, regiontrimesh seems to mutate Vb so use a copy
+    VT_bottom = [copy(Vb_Base_Underside),]
+    R_top = ([1,2,3,4,5],)
+    R_bottom = ([1],)
+    PointSpacing = (1.0)
+
+    # regiontrimesh
+    #F_top,V_top,C_top = regiontrimesh(VT_top,R_top,PointSpacing)
+    F_bottom,V_bottom,C_bottom = regiontrimesh(VT_bottom,R_bottom,PointSpacing)
+    
+    # Plotting 
+    fig = Figure(size=(1000,500))
+    ax=AxisGeom(fig[1, 1], title="Base Boundary Points", azimuth=-pi/2, elevation=pi/2)
+    hp1 = scatter!(ax, Vb_Base ,markersize=10,color=:darkgreen)
+    hp2 = scatter!(ax, [VBerry1_Edge;VBerry2_Edge;VBerry3_Edge] ,markersize=10,color=:blue)
+    #hp3 = Comodo.meshplot!(ax, F_top, V_top, color=:red)
+    hp4 = Comodo.meshplot!(ax, F_bottom, V_bottom, color=:green)
+    hp6 = scatter!(ax, VHole ,markersize=10,color=:purple)
     dscreen = display(GLMakie.Screen(), fig)
 
    # To do from here:
