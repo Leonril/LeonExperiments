@@ -20,6 +20,8 @@ using MeshIO
 using FileIO
 using FilePathsBase
 using LinearAlgebra
+using Statistics
+
 
 GLMakie.closeall() #Close any open Makie windows
 
@@ -137,16 +139,10 @@ elseif testCase == 2
 
 elseif testCase == 3
     # Creating holly berries 
-    rBerry = 5.0
-    pointSpacingBerry = 1.0
+    rBerry = 2.5
+    pointSpacingBerry = 0.5
     z_threshold = -(rBerry*0.85) # Height at which berry meets base
     FBerry, VBerry = geosphere(2,rBerry) # Creates a sphere mesh
-
-    # Plotting berry tri sphere
-    fig = Figure(size=(1000,500))
-    ax=Axis3(fig[1, 1], title="Berry (tri sphere)", azimuth=-pi/2, elevation=pi/2)
-    Comodo.meshplot!(ax, FBerry, VBerry)
-    dscreen = display(GLMakie.Screen(), fig)
 
     # Remove lower part of the berry to intergrate with base
     idx = findall(getindex.(VBerry, 3) .< z_threshold) # Find indices of verticecs below z_threshold
@@ -166,9 +162,11 @@ elseif testCase == 3
     # Suppose connectivityV[i] is a vector of connected vertices for vertex i
     edge_indices = [i for i in 1:length(VBerryTemplate) if length(FaceConnectivity[i]) < 5] #Edges have less than 5 connected faces
 
+    mean_z = mean(v[3] for v in VBerryTemplate[edge_indices]) # mean of cut facec
+
     for i in edge_indices # Update z value of edge vertices from cut faces
     v = VBerryTemplate[i]
-    VBerryTemplate[i] = Point(v[1], v[2], z_threshold)  # create a new Point with updated z
+    VBerryTemplate[i] = Point(v[1], v[2], mean_z)  #  updated z to mean position to minimize distortion
     end
 
     VBerry_Edge = VBerryTemplate[edge_indices] # Store edge vertices 
@@ -178,8 +176,6 @@ elseif testCase == 3
     order = sortperm(angles)       # returns ordering of V_subset
     edge_indices_ccw = edge_indices[order]         # reordered original indices
 
-
-
     # Plotting berry with cleaned bottom edges
     fig = Figure(size=(1000,500))
     ax=AxisGeom(fig[1, 1], title="Berry  with cleaned cut ", azimuth=-pi/2, elevation=pi/2)
@@ -188,8 +184,8 @@ elseif testCase == 3
     dscreen = display(GLMakie.Screen(), fig)
 
     # Creating the leaf boundary
-    rLeaf1 = 8.0 # radius of the curves of the leaves
-    rLeaf2 = 5.0 # radius of the smaller curves of the leaves
+    rLeaf1 = 15.0 # radius of the curves of the leaves
+    rLeaf2 = 8.0 # radius of the smaller curves of the leaves
     nLeafPoints = 40 # refinement control of the mesh, use multiple of 4 for symmetry
     cut = rLeaf2/5  # cut to make smaller curve fit regularly 
     errorVariable = 0.01  # small error tolerance for point inclusion checks
@@ -200,13 +196,6 @@ elseif testCase == 3
     Varc1_unsorted = [v for v in V_leaf_circle1 if v[1] > 0-errorVariable && v[2] < 0+errorVariable]
     Varc1 = [Varc1_unsorted[2:end]; Varc1_unsorted[1:1]] # Sorting points to go counter clockwise
     Varc2 = [v for v in V_leaf_circle2 if v[2] > 0+cut] # Cutting the points for a curve from a circle
-
-    # Plotting leaf arcs
-    fig = Figure(size=(1000,500))
-    ax=AxisGeom(fig[1, 1], title="Leaf arcs ", azimuth=-pi/2, elevation=pi/2)
-    hp1 = scatter!(ax, Varc1 ,markersize=10,color=:blue)
-    hp2 = scatter!(ax, Varc2 ,markersize=10,color=:red)
-    dscreen = display(GLMakie.Screen(), fig)
 
     # Using the arcs to create the leaf shape
     VLeafCurve2 = reverse([Point(v[1] + (rLeaf1+rLeaf2), -v[2], v[3]) for v in Varc2])
@@ -231,10 +220,10 @@ elseif testCase == 3
     dscreen = display(GLMakie.Screen(), fig)
 
     # Creating the base boundary
-    spacingBerry = 2.0 # spacing between berries
+    spacingBerry = 0.5 # spacing between berries
     dist_berryCentres = 2*rBerry + spacingBerry # distance between berry centers
     
-    # Radius of the circular base to fit three berries
+    # Radius of the centre of three berries
     radiusBerryCentre= ceil((sqrt(3)/3) * dist_berryCentres)
 
     # first vertex at negative x-axis
@@ -250,10 +239,10 @@ elseif testCase == 3
     centreBerry2 = rotate(centreBerry1, θ)
     centreBerry3 = rotate(centreBerry1, 2θ)
 
-    radiusBase = radiusBerryCentre + rBerry + spacingBerry 
+    radiusBase = radiusBerryCentre + rBerry #+ spacingBerry 
 
     # Trimming leaf and base to fit together
-    VLeafShifted = [Point(v[1]+0.8*radiusBase, v[2], v[3]) for v in VLeaf] # Shift leaf down to original position
+    VLeafShifted = [Point(v[1]+0.1*radiusBase, v[2], v[3]) for v in VLeaf] # Shift leaf down to original position
     VLeafTrimmed = [v for v in VLeafShifted if norm(v) > radiusBase]
 
     fig = Figure(size=(1000,500))
@@ -291,32 +280,22 @@ elseif testCase == 3
     dscreen = display(GLMakie.Screen(), fig)
 
     # Positioning berries on base
-    VBerry1 = [Point(v[1]+centreBerry1[1], v[2]+centreBerry1[2], v[3]+abs(z_threshold)) for v in VBerryTemplate] # Shift Berrys to new positions
-    VBerry2 = [Point(v[1]+centreBerry2[1], v[2]+centreBerry2[2], v[3]+abs(z_threshold)) for v in VBerryTemplate] # Shift Berrys to new positions
-    VBerry3 = [Point(v[1]+centreBerry3[1], v[2]+centreBerry3[2], v[3]+abs(z_threshold)) for v in VBerryTemplate] # Shift Berrys to new positions
+    VBerry1 = [Point(v[1]+centreBerry1[1], v[2]+centreBerry1[2], v[3]+abs(mean_z)) for v in VBerryTemplate] # Shift Berrys to new positions
+    VBerry2 = [Point(v[1]+centreBerry2[1], v[2]+centreBerry2[2], v[3]+abs(mean_z)) for v in VBerryTemplate] # Shift Berrys to new positions
+    VBerry3 = [Point(v[1]+centreBerry3[1], v[2]+centreBerry3[2], v[3]+abs(mean_z)) for v in VBerryTemplate] # Shift Berrys to new positions
     
     VBerry1_Edge =  VBerry1[edge_indices_ccw] # Store edge vertices for regiontrimesh
     VBerry2_Edge =  VBerry2[edge_indices_ccw]
     VBerry3_Edge =  VBerry3[edge_indices_ccw]
 
-    fig = Figure(size=(1000,500))
-    ax=AxisGeom(fig[1, 1], title="Base Boundary Points", azimuth=-pi/2, elevation=pi/2)
-    hp1 = scatter!(ax, Vb_Base ,markersize=10,color=:darkgreen)
-    hp2 = scatter!(ax, [VBerry1_Edge;VBerry2_Edge;VBerry3_Edge] ,markersize=10,color=:blue)
-    hp3 = Comodo.meshplot!(ax, F_keep_cleaned, VBerry1, color=:red)
-    hp4 = Comodo.meshplot!(ax, F_keep_cleaned, VBerry2, color=:red)
-    hp5 = Comodo.meshplot!(ax, F_keep_cleaned, VBerry3, color=:red)
-    dscreen = display(GLMakie.Screen(), fig)
-
     # Put hole in base for string
-    HoleSpacing = 2.0 # distance betweeen two HoleSpacing
-    HoleRadius = 2.0 # radius of hole
+    HoleRadius = 1.0 # radius of hole
     V_HoleTemplate = circlepoints(HoleRadius,20)
 
     VHole = [Point(v[1] + radiusBase - (2*HoleRadius), v[2], v[3]) for v in V_HoleTemplate]
     
     fig = Figure(size=(1000,500))
-    ax=AxisGeom(fig[1, 1], title="Base Boundary Points", azimuth=-pi/2, elevation=pi/2)
+    ax=AxisGeom(fig[1, 1], title="Base Boundary Points, with Berry faces and hole edge", azimuth=-pi/2, elevation=pi/2)
     hp1 = scatter!(ax, Vb_Base ,markersize=10,color=:darkgreen)
     hp2 = scatter!(ax, [VBerry1_Edge;VBerry2_Edge;VBerry3_Edge] ,markersize=10,color=:blue)
     hp3 = Comodo.meshplot!(ax, F_keep_cleaned, VBerry1, color=:red)
@@ -326,49 +305,117 @@ elseif testCase == 3
     dscreen = display(GLMakie.Screen(), fig)
 
     # Making underside of ornament
-    HollyThickness = 4.0
+    HollyThickness = 2.0
     testCircle = circlepoints(radiusBase,40)
     VtestCircle_Underside = [Point(v[1], v[2], -HollyThickness) for v in testCircle]
     Vb_Base_Underside = [Point(v[1], v[2], v[3]-HollyThickness) for v in Vb_Base]
     VHole_Underside = [Point(v[1], v[2], v[3]-HollyThickness) for v in VHole]
 
     # Setting up regiontrimesh inputs
-    #VT_top = [copy(Vb_Base),copy(VBerry1_Edge),copy(VBerry2_Edge),copy(VBerry3_Edge),copy(VHole),] # Tuple of the vertex array, regiontrimesh seems to mutate Vb so use a copy
+    VT_top = [reverse(copy(Vb_Base)),copy(VBerry1_Edge),copy(VBerry2_Edge),copy(VBerry3_Edge),copy(VHole),] # Tuple of the vertex array, regiontrimesh seems to mutate Vb so use a copy
     VT_bottom = [reverse(copy(Vb_Base_Underside)),copy(VHole_Underside)]
     R_top = ([1,2,3,4,5],)
     R_bottom = ([1,2],)
     PointSpacing = 1.0
 
     # regiontrimesh
-    #F_top,V_top,C_top = regiontrimesh(VT_top,R_top,PointSpacing)
+    F_top,V_top,C_top = regiontrimesh(VT_top,R_top,PointSpacing)
     F_bottom,V_bottom,C_bottom = regiontrimesh(VT_bottom,R_bottom,PointSpacing)
     
     # Plotting 
     fig = Figure(size=(1000,500))
-    ax=AxisGeom(fig[1, 1], title="Base Boundary Points", azimuth=-pi/2, elevation=pi/2)
-    hp1 = scatter!(ax, Vb_Base ,markersize=10,color=:darkgreen)
-    hp2 = scatter!(ax, [VBerry1_Edge;VBerry2_Edge;VBerry3_Edge] ,markersize=10,color=:blue)
-    #hp3 = Comodo.meshplot!(ax, F_top, V_top, color=:red)
+    ax=AxisGeom(fig[1, 1], title="Tri mesh of top and bottom surfaces", azimuth=-pi/2, elevation=pi/2)
+    hp3 = Comodo.meshplot!(ax, F_top, V_top, color=:red)
     hp4 = Comodo.meshplot!(ax, F_bottom, V_bottom, color=:green)
-    hp6 = scatter!(ax, VHole ,markersize=10,color=:purple)
-    hp7 = scatter!(ax, VBase1[1] ,markersize=10,color=:red)
-    hp8 = scatter!(ax, VBase2[1] ,markersize=10,color=:pink)
-    hp9 = scatter!(ax, VBase3[1] ,markersize=10,color=:yellow)
-    
-    hp10 = scatter!(ax, VBase1[end] ,markersize=10,color=:red)
-    hp11 = scatter!(ax, VBase2[end] ,markersize=10,color=:pink)
-    hp12 = scatter!(ax, VBase3[end] ,markersize=10,color=:yellow)
     
     dscreen = display(GLMakie.Screen(), fig)
 
-   # To do from here:
-   # - position and track berries
-   # - Put hole in base for a string and track
-   # - copy base to negative thickness 
-   # - region tri mesh top and bottom
-   # - refind boundary edges 
-   # - create side faces
-   # - combine all
-   # - convert to stl
- 
+    # Finding boundary edges again after regiontrimesh
+    Vb_TopandBottom = [V_top; V_bottom]
+    indexmap = Dict(Vb_TopandBottom[i] => i for i in eachindex(Vb_TopandBottom))
+    Vb_TopInd = [ get(indexmap, p, nothing) for p in Vb_Base ] # Find indexes of boundary points for edge of V_top
+    Vb_TopInd = filter(!isnothing, Vb_TopInd) # Remove any missing points
+    
+    #indexmapBottom = Dict(V_bottom[i] => i for i in eachindex(V_bottom))
+    Vb_BottomInd = [ get(indexmap, p, nothing) for p in Vb_Base_Underside ] # Find indexes of boundary points for edge of V_bottom
+    Vb_BottomInd = filter(!isnothing, Vb_BottomInd) # Remove any missing points
+    
+    Vb_HoleTopInd = [ get(indexmap, p, nothing) for p in VHole ] # Find indexes of boundary points for edge of V_bottom
+    Vb_HoleTopInd = filter(!isnothing, Vb_HoleTopInd) # Remove any missing points
+    
+    Vb_HoleBottomInd = [ get(indexmap, p, nothing) for p in VHole_Underside ] # Find indexes of boundary points for edge of V_bottom
+    Vb_HoleBottomInd = filter(!isnothing, Vb_HoleBottomInd) # Remove any missing points
+
+    # Shift bottom face indices to match being combined with top
+    F_bottom_shifted = [ # shifting indices of top face triangles
+        TriangleFace(f[1] + length(V_top), f[2] + length(V_top), f[3] + length(V_top))
+    for f in F_bottom]
+
+    FBerry1_shifted = [ # shifting indices of top face triangles
+        TriangleFace(f[1] + length(V_top)+length(V_bottom), f[2] + length(V_top)+length(V_bottom), f[3] + length(V_top)+length(V_bottom))
+    for f in F_keep_cleaned]
+    
+    FBerry2_shifted = [ # shifting indices of top face triangles
+        TriangleFace(f[1] + length(V_top)+length(V_bottom)+length(VBerry1), f[2] + length(V_top)+length(V_bottom)+length(VBerry1), f[3] + length(V_top)+length(V_bottom)+length(VBerry1))
+    for f in F_keep_cleaned]
+
+    FBerry3_shifted = [ # shifting indices of top face triangles
+        TriangleFace(f[1] + length(V_top)+length(V_bottom)+(2*length(VBerry1)), f[2] + length(V_top)+length(V_bottom)+(2*length(VBerry1)), f[3] + length(V_top)+length(V_bottom)+(2*length(VBerry1)))
+    for f in F_keep_cleaned]
+
+    # Creating side faces for base and hole
+    n = length(Vb_Base) # number of vertices in Top V edge
+    nHole = length(VHole) # number of vertices in Hole V edge
+
+    Fs1 = [TriangleFace(Vb_BottomInd[i], Vb_BottomInd[i+1], Vb_TopInd[i]) for i in 1:(n-1)] # one half of quad split into two tris
+    Fs2 = [TriangleFace(Vb_TopInd[i], Vb_TopInd[i+1], Vb_BottomInd[i+1]) for i in 1:(n-1)] # other half of quad split into two tris
+    
+    push!(Fs1, TriangleFace(Vb_BottomInd[n], Vb_BottomInd[1], Vb_TopInd[n])) # closing the loop of faces
+    push!(Fs2, TriangleFace(Vb_TopInd[n], Vb_TopInd[1], Vb_BottomInd[1]))
+
+    FsHole1 = [TriangleFace(Vb_HoleBottomInd[i], Vb_HoleBottomInd[i+1], Vb_HoleTopInd[i]) for i in 1:(nHole-1)] # one half of quad split into two tris
+    FsHole2 = [TriangleFace(Vb_HoleTopInd[i], Vb_HoleTopInd[i+1], Vb_HoleBottomInd[i+1]) for i in 1:(nHole-1)] # other half of quad split into two tris
+    
+    push!(FsHole1, TriangleFace(Vb_HoleBottomInd[nHole], Vb_HoleBottomInd[1], Vb_HoleTopInd[nHole])) # closing the loop of faces
+    push!(FsHole2, TriangleFace(Vb_HoleTopInd[nHole], Vb_HoleTopInd[1], Vb_HoleBottomInd[1]))
+    
+    fig = Figure(size=(1000,500))
+    ax=AxisGeom(fig[1, 1], title="Side Faces for outer surface and hole", azimuth=-pi/2, elevation=pi/2)
+    hp3 = Comodo.meshplot!(ax, Fs1, Vb_TopandBottom, color=:red)
+    hp4 = Comodo.meshplot!(ax, Fs2, Vb_TopandBottom, color=:blue)
+    hp5 = Comodo.meshplot!(ax, FsHole1, Vb_TopandBottom, color=:pink)
+    hp6 = Comodo.meshplot!(ax, FsHole2, Vb_TopandBottom, color=:purple)
+    dscreen = display(GLMakie.Screen(), fig)
+
+    # Combining all faces and vertices
+    V_unmerged = [Vb_TopandBottom; VBerry1; VBerry2; VBerry3]
+    F_unmerged = [F_top; F_bottom_shifted; FBerry1_shifted; FBerry2_shifted; FBerry3_shifted; Fs1; Fs2; FsHole1; FsHole2]
+    F,V = mergevertices(F_unmerged, V_unmerged) # Removing duplicates in Berrys to base 
+    
+    # Fixing colour sets
+    C_bottom =  C_bottom.+1
+    C_Berrys = fill(maximum(C_bottom)+1, 3*length(FBerry1_shifted)) # New color for berry faces 
+    C_sides = fill(maximum(C_Berrys)+1, length(Fs1) + length(Fs2)) # New color for side faces
+    C_hole =  fill(maximum(C_sides)+1, length(FsHole1) + length(FsHole2))
+    C = [C_top; C_bottom; C_Berrys; C_sides; C_hole ]
+    
+    # Plotting finished ornament
+    Fp,Vp = separate_vertices(F,V) # Give each face its own point set 
+    Cp = simplex2vertexdata(Fp,C) # Convert face color data to vertex color data 
+
+    fig = Figure(size=(1200,1000))
+    ax4 = AxisGeom(fig[1, 1], title="Finished ornament mesh with color mapped", azimuth=-pi/2, elevation=pi/2)
+    hp4 = meshplot!(ax4, Fp, Vp, strokewidth=1.0, color=Cp, colormap=Makie.Categorical(Makie.Reverse(:Spectral)))    
+    Colorbar(fig[1, 1][1, 2], hp4)
+    screen = display(GLMakie.Screen(), fig)
+
+    #convert to triangular mesh
+    surfaceMesh=GeometryBasics.Mesh(Point.(V),F)
+
+    #Save as .stl
+    export_dir = joinpath(@__DIR__, "..", "exports") #Adds exports folder in parent directory
+    isdir(export_dir) || mkdir(export_dir) #Create exports folder if it doesn't exist
+    File_name = joinpath(export_dir,"demo_stl_holly.stl") #Define file path and name
+    save(File_name, surfaceMesh); #Save stl
+
 end
