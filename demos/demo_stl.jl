@@ -173,6 +173,13 @@ elseif testCase == 3
 
     VBerry_Edge = VBerryTemplate[edge_indices] # Store edge vertices 
 
+    #Sorting edge vertices in circular order for regiontrimesh
+    anglesBerryEdge = angles = [atan(p[2], p[1]) for p in VBerry_Edge]
+    order = sortperm(angles)       # returns ordering of V_subset
+    edge_indices_ccw = edge_indices[order]         # reordered original indices
+
+
+
     # Plotting berry with cleaned bottom edges
     fig = Figure(size=(1000,500))
     ax=AxisGeom(fig[1, 1], title="Berry  with cleaned cut ", azimuth=-pi/2, elevation=pi/2)
@@ -185,12 +192,12 @@ elseif testCase == 3
     rLeaf2 = 5.0 # radius of the smaller curves of the leaves
     nLeafPoints = 40 # refinement control of the mesh, use multiple of 4 for symmetry
     cut = rLeaf2/5  # cut to make smaller curve fit regularly 
-    errror = 0.01  # small error tolerance for point inclusion checks
+    errorVariable = 0.01  # small error tolerance for point inclusion checks
 
     V_leaf_circle1 = circlepoints(rLeaf1,nLeafPoints)
     V_leaf_circle2 = circlepoints(rLeaf2,nLeafPoints)
     
-    Varc1_unsorted = [v for v in V_leaf_circle1 if v[1] > 0-error && v[2] < 0+error]
+    Varc1_unsorted = [v for v in V_leaf_circle1 if v[1] > 0-errorVariable && v[2] < 0+errorVariable]
     Varc1 = [Varc1_unsorted[2:end]; Varc1_unsorted[1:1]] # Sorting points to go counter clockwise
     Varc2 = [v for v in V_leaf_circle2 if v[2] > 0+cut] # Cutting the points for a curve from a circle
 
@@ -239,7 +246,7 @@ elseif testCase == 3
          sin(θ)  cos(θ)] * v
     end
 
-    θ = 2π/3
+    θ = -2π/3
     centreBerry2 = rotate(centreBerry1, θ)
     centreBerry3 = rotate(centreBerry1, 2θ)
 
@@ -272,8 +279,8 @@ elseif testCase == 3
      sin(θ)  cos(θ)]
 
     # Rotate all points
-    VBase2 = [Point(R * [p[1]; p[2]]..., p[3]) for p in VBase1]
-    VBase3 = [Point(R * [p[1]; p[2]]..., p[3]) for p in VBase2]
+    VBase2 = [Point(R2 * [p[1]; p[2]]..., p[3]) for p in VBase1]
+    VBase3 = [Point(R2 * [p[1]; p[2]]..., p[3]) for p in VBase2]
 
     # Combine all base points
     Vb_Base = [VBase1; VBase2; VBase3] # Complete base points
@@ -288,9 +295,9 @@ elseif testCase == 3
     VBerry2 = [Point(v[1]+centreBerry2[1], v[2]+centreBerry2[2], v[3]+abs(z_threshold)) for v in VBerryTemplate] # Shift Berrys to new positions
     VBerry3 = [Point(v[1]+centreBerry3[1], v[2]+centreBerry3[2], v[3]+abs(z_threshold)) for v in VBerryTemplate] # Shift Berrys to new positions
     
-    VBerry1_Edge =  VBerry1[edge_indices] # Store edge vertices for regiontrimesh
-    VBerry2_Edge =  VBerry2[edge_indices]
-    VBerry3_Edge =  VBerry3[edge_indices]
+    VBerry1_Edge =  VBerry1[edge_indices_ccw] # Store edge vertices for regiontrimesh
+    VBerry2_Edge =  VBerry2[edge_indices_ccw]
+    VBerry3_Edge =  VBerry3[edge_indices_ccw]
 
     fig = Figure(size=(1000,500))
     ax=AxisGeom(fig[1, 1], title="Base Boundary Points", azimuth=-pi/2, elevation=pi/2)
@@ -327,10 +334,10 @@ elseif testCase == 3
 
     # Setting up regiontrimesh inputs
     #VT_top = [copy(Vb_Base),copy(VBerry1_Edge),copy(VBerry2_Edge),copy(VBerry3_Edge),copy(VHole),] # Tuple of the vertex array, regiontrimesh seems to mutate Vb so use a copy
-    VT_bottom = [copy(Vb_Base_Underside),]
+    VT_bottom = [reverse(copy(Vb_Base_Underside)),copy(VHole_Underside)]
     R_top = ([1,2,3,4,5],)
-    R_bottom = ([1],)
-    PointSpacing = (1.0)
+    R_bottom = ([1,2],)
+    PointSpacing = 1.0
 
     # regiontrimesh
     #F_top,V_top,C_top = regiontrimesh(VT_top,R_top,PointSpacing)
@@ -344,6 +351,14 @@ elseif testCase == 3
     #hp3 = Comodo.meshplot!(ax, F_top, V_top, color=:red)
     hp4 = Comodo.meshplot!(ax, F_bottom, V_bottom, color=:green)
     hp6 = scatter!(ax, VHole ,markersize=10,color=:purple)
+    hp7 = scatter!(ax, VBase1[1] ,markersize=10,color=:red)
+    hp8 = scatter!(ax, VBase2[1] ,markersize=10,color=:pink)
+    hp9 = scatter!(ax, VBase3[1] ,markersize=10,color=:yellow)
+    
+    hp10 = scatter!(ax, VBase1[end] ,markersize=10,color=:red)
+    hp11 = scatter!(ax, VBase2[end] ,markersize=10,color=:pink)
+    hp12 = scatter!(ax, VBase3[end] ,markersize=10,color=:yellow)
+    
     dscreen = display(GLMakie.Screen(), fig)
 
    # To do from here:
