@@ -1,15 +1,7 @@
 # demo_stl.jl
-# Description: A demo script to create and save stl of test shapes.
-
-
-# Future Improvements to Add: 
-# - Finish batman logo example
-#      - Batman curve working 
-#      - Need to make 3D and add tetgen 
-# - Finish holly Christmas ornament example
-#      - Just beginning
-
-# - Add more shape variants for demo
+# Description: A demo script to create and save stl of test shapes. Edit the testCase 
+# variable to switch between different shapes, the Holly Ornament variable showcases 
+# a complex shape creation using complex parametric tri meshes and interfaced regions.
 
 
 #using LeonExperiments
