@@ -467,7 +467,7 @@ if plot_control == 1 || plot_number in plot_vector
 
     fig = Figure(size=(1200,1000))
     ax1 = AxisGeom(fig[1, 1], title="Unscaled simplified geometry", azimuth=-pi/4, elevation=pi/4)
-    hp1 = meshplot!(ax1, Fp, Vp, strokewidth=1.0, color=Cp, alpha=0.5, colormap=Makie.Categorical(Makie.Reverse(:Spectral)))    
+    hp1 = meshplot!(ax1, Fp, Vp, strokewidth=1.0, color=Cp, colormap=Makie.Categorical(Makie.Reverse(:Spectral)))    
     hp2 = scatter!(ax1, V ,markersize=markerSize/4,color=:black)
     Colorbar(fig[1, 1][1, 2], hp1)
     screen = display(GLMakie.Screen(), fig)
@@ -479,29 +479,28 @@ ymin = minimum(p -> p[1], V_bar)
 V_element = [Point(p[1], p[2]-ymin, p[3]) for p in V]#undoing centre alignment in Z axis
 
 
-# Working this far 
-
-#=
-
 ## Defining the boundary conditions
 # The visualization of the model boundary shows colours. These labels can be used to define boundary conditions. 
 
 #Define supported node sets
-bcSupportList=unique(Fb(Cb==1,:)); #Node set part of selected face
+bcSupportList= unique(vcat([collect(f) for f in Fb[Cb.==6]]...)) #Node set part of selected face (face =1 in MATLAB)
 
 #Get pressure faces
-F_pressure=Fb(Cb==0,:); 
+F_pressure=Fb[Cb.==0]
 
 #Get end face
-F_end=Fb(Cb==2,:);
+F_end=Fb[Cb.==5]# face = 2 in MATLAB
 
-bcTipList=unique(F_end);
+bcTipList=unique(vcat([collect(f) for f in F_end]...)) #Unique vertexes on end face
 
 #Get end face corner nodes
-Spine_list=unique(Fb(Cb==5,:));#List of nodes along bottom surface of Pneunet
+Spine_list=unique(vcat([collect(f) for f in Fb[Cb.==1]]...))#List of nodes along bottom surface of Pneunet
 
-[LIA,indForceNodes]=ismember(unique(F_end),Spine_list);#unique index when both end conditions are met
-indForceNodes=indForceNodes(indForceNodes~=0);#index list of Nodes where reaction force will be investigated
+indForceNodes = intersect(bcTipList,Spine_list);#index list of Nodes where reaction force will be investigated
+
+# Working this far 
+
+#=
 
 ## Defining Contact surfaces
 logicContactSurf=Cb==7;#chamber wall faces
