@@ -282,96 +282,132 @@ Chamber_height_elements=ceil(Int64,Chamber_height/pointSpacing); # no of mesh el
 end 
 
 if SLL_control==2
-    SLL_thickness=0;
-    SLL_thickness_elements=0;
+    SLL_thickness=0
+    SLL_thickness_elements=0
 end
 
 ## Simplfied geometry creation
 # Simple geometry is defined using mesh elements only
 
 # X direction elements needed
-Length=(n*((2*Chamber_wt_elements)+Chamber_length_elements))+((n-1)*Gap_length_elements);
+Length=(n*((2*Chamber_wt_elements)+Chamber_length_elements))+((n-1)*Gap_length_elements)
 
 # Y direction elements needed
-Width=(2*Side_wall_thickness_elements)+Chamber_width_elements;
+Width=(2*Side_wall_thickness_elements)+Chamber_width_elements
 
 # Z direction elements needed
-Height=SLL_thickness_elements+Mat1_base_thickness_elements+Chamber_height_elements+Chamber_roof_thickness_elements;
+Height=SLL_thickness_elements+Mat1_base_thickness_elements+Chamber_height_elements+Chamber_roof_thickness_elements
 
+# Creating hexahedral box 
 boxDim=[Float64(Length); Float64(Width); Float64(Height)]
 boxEl=[Length; Width; Height]
 
-
 E_bar,V_bar,F_bar,Fb_bar,Cb_bar = hexbox(boxDim,boxEl)
 
-#=
-## Working this far
+# Adjusting alignment
+xmin = minimum(p -> p[1], V_bar)
+zmin = minimum(p -> p[3], V_bar)
 
+V_bar = [Point(p[1] - xmin, p[2], p[3]-zmin) for p in V_bar] # undoes centre alignment on x and z axes
 
-V_bar(:,1)=V_bar(:,1)-min(V_bar(:,1)); #undoes centre alignment on X axis
-V_bar(:,3)=V_bar(:,3)-min(V_bar(:,3)); #undoes centre alignment on Z axis Y alignment not changed yet as it is used to simplify scaling
-
-
-VE_bar=patchCentre(E_bar,V_bar);#getting element centre for one value control of elements - better than 8 values for nodes
-VE_bar=abs(VE_bar);# Abs values for easier control
-
+# Finding element centres
+VE_bar = [sum(V_bar[i] for i in elem) / length(elem) for elem in E_bar]# creats a list of element centres
+VE_bar = [Point(abs(p[1]), abs(p[2]), abs(p[3])) for p in VE_bar] # Abs values for easier control
 
 #X axis logic - Inner & Outer 
 LowerLimChannel=Chamber_wt_elements;
 UpperLimChannel=((Length)-Chamber_wt_elements);
 
-CX=VE_bar(:,1);
-CXGap_length=zeros(1,size(VE_bar,1));
-CXChamber=zeros(1,size(VE_bar,1));
-CXChannel=zeros(1,size(VE_bar,1));
+CX = [p[1] for p in VE_bar]
+CXGap_length = zeros(length(VE_bar))
+CXChamber = zeros(length(VE_bar))
+CXChannel = zeros(length(VE_bar))
 
-for i=1:1:size(VE_bar,1)
+
+for i=1:1:length(VE_bar)
     
     for j=1:1:n
         #Setting Changing Limits
-        LowerLimChamber=Chamber_wt_elements + ((j-1)*((2*Chamber_wt_elements)+Chamber_length_elements+Gap_length_elements));
-        UpperLimChamber=Chamber_wt_elements+Chamber_length_elements  + ((j-1)*((2*Chamber_wt_elements)+Chamber_length_elements+Gap_length_elements));
+        LowerLimChamber=Chamber_wt_elements + ((j-1)*((2*Chamber_wt_elements)+Chamber_length_elements+Gap_length_elements))
+        UpperLimChamber=Chamber_wt_elements+Chamber_length_elements  + ((j-1)*((2*Chamber_wt_elements)+Chamber_length_elements+Gap_length_elements))
         
-        LowerLimGap_length=((2*Chamber_wt_elements)+Chamber_length_elements)+((j-1)*((2*Chamber_wt_elements)+Chamber_length_elements+Gap_length_elements));
-        UpperLimGap_length=((j)*((2*Chamber_wt_elements)+Chamber_length_elements+Gap_length_elements));
+        LowerLimGap_length=((2*Chamber_wt_elements)+Chamber_length_elements)+((j-1)*((2*Chamber_wt_elements)+Chamber_length_elements+Gap_length_elements))
+        UpperLimGap_length=((j)*((2*Chamber_wt_elements)+Chamber_length_elements+Gap_length_elements))
         
         #Outer geometry -  if needs removal -> mark as 1
-        if CX(i) > LowerLimGap_length && CX(i) < UpperLimGap_length
-            CXGap_length(i)=1;
+        if CX[i] > LowerLimGap_length && CX[i] < UpperLimGap_length
+            CXGap_length[i]=1
         end
         
-        if CX(i) > LowerLimChamber && CX(i) < UpperLimChamber
-           CXChamber(i)=1;
+        if CX[i] > LowerLimChamber && CX[i] < UpperLimChamber
+           CXChamber[i]=1
         end
         
-        if CX(i) > LowerLimChannel && CX(i) < UpperLimChannel
-            CXChannel(i)=1;
+        if CX[i] > LowerLimChannel && CX[i] < UpperLimChannel
+            CXChannel[i]=1
         end
         
     end
     
 end
-logicDeleteOuterX=logical(CXGap_length)';#converting to logical
-logicDeleteInnerX1=logical(CXChamber)';
-logicDeleteInnerX2=logical(CXChannel)';
+
+#logicDeleteOuterX=logical(CXGap_length)';#converting to logical
+#logicDeleteInnerX1=logical(CXChamber)';
+#logicDeleteInnerX2=logical(CXChannel)';
+
+logicDeleteOuterX = CXGap_length .!= 0
+logicDeleteInnerX1 = CXChamber .!= 0
+logicDeleteInnerX2 = CXChannel .!= 0
+
 
 # Y and Z logic -  Inner and Outer _ simpler as not effected by no. of
 # chambers
-logicDeleteOuterZ=VE_bar(:,3)>(SLL_thickness_elements+Mat1_base_thickness_elements+Channel_height_elements+Channel_roof_thickness_elements);
-logicKeepOuter=~(logicDeleteOuterX.*logicDeleteOuterZ);
-logicKeepOuter=logical(logicKeepOuter);
 
-logicDeleteInnerY1=~(VE_bar(:,2)>(Chamber_width_elements/2));
-logicDeleteInnerY2=~(VE_bar(:,2)>(Channel_width_elements/2));
-logicDeleteInnerZ1=(VE_bar(:,3)>(SLL_thickness_elements+Mat1_base_thickness_elements) & VE_bar(:,3)<(Height-Chamber_roof_thickness_elements));
-logicDeleteInnerZ2=(VE_bar(:,3)>(SLL_thickness_elements+Mat1_base_thickness_elements) & VE_bar(:,3)<(SLL_thickness_elements+Mat1_base_thickness_elements+Channel_height_elements));
+logicDeleteOuterZ = [p[3] > (SLL_thickness_elements+Mat1_base_thickness_elements+Channel_height_elements+Channel_roof_thickness_elements) for p in VE_bar]
+logicKeepOuter = .!(logicDeleteOuterX .& logicDeleteOuterZ)
+
+#logicDeleteOuterZ=VE_bar(:,3)>(SLL_thickness_elements+Mat1_base_thickness_elements+Channel_height_elements+Channel_roof_thickness_elements);
+#logicKeepOuter=~(logicDeleteOuterX.*logicDeleteOuterZ);
+#logicKeepOuter=logical(logicKeepOuter);
+
+#logicDeleteInnerY1=~(VE_bar(:,2)>(Chamber_width_elements/2));
+#logicDeleteInnerY2=~(VE_bar(:,2)>(Channel_width_elements/2));
+#logicDeleteInnerZ1=(VE_bar(:,3)>(SLL_thickness_elements+Mat1_base_thickness_elements) & VE_bar(:,3)<(Height-Chamber_roof_thickness_elements));
+#logicDeleteInnerZ2=(VE_bar(:,3)>(SLL_thickness_elements+Mat1_base_thickness_elements) & VE_bar(:,3)<(SLL_thickness_elements+Mat1_base_thickness_elements+Channel_height_elements));
+
+logicDeleteInnerY1 = [!(p[2] > Chamber_width_elements / 2) for p in VE_bar]
+logicDeleteInnerY2 = [!(p[2] > Channel_width_elements / 2) for p in VE_bar]
+
+logicDeleteInnerZ1 = [
+    (p[3] > (SLL_thickness_elements+Mat1_base_thickness_elements)) & (p[3] < (Height-Chamber_roof_thickness_elements))
+    for p in VE_bar
+]
+
+logicDeleteInnerZ2 = [
+    (p[3] > (SLL_thickness_elements+Mat1_base_thickness_elements)) & (p[3] < (SLL_thickness_elements+Mat1_base_thickness_elements+Channel_height_elements))
+    for p in VE_bar
+]
+
 
 
 
 # uses logic vectors to choose which elements to keep
-logicKeepChamber=~(logicDeleteInnerX1 == 1 & logicDeleteInnerY1 == 1 & logicDeleteInnerZ1 == 1);
-logicKeepChannel=~(logicDeleteInnerX2 == 1 & logicDeleteInnerY2 == 1 & logicDeleteInnerZ2 == 1);
-logicKeepInner=logicKeepChamber.*logicKeepChannel;
+logicKeepChamber = .!(logicDeleteInnerX1 .& logicDeleteInnerY1 .& logicDeleteInnerZ1)
+
+logicKeepChannel = .!(logicDeleteInnerX2 .& logicDeleteInnerY2 .& logicDeleteInnerZ2)
+
+
+#logicKeepChamber=~(logicDeleteInnerX1 == 1 & logicDeleteInnerY1 == 1 & logicDeleteInnerZ1 == 1);
+#logicKeepChannel=~(logicDeleteInnerX2 == 1 & logicDeleteInnerY2 == 1 & logicDeleteInnerZ2 == 1);
+#logicKeepInner=logicKeepChamber.*logicKeepChannel;
+
+logicKeepInner = logicKeepChamber .& logicKeepChannel
+logicKeepInner = logicKeepInner[logicKeepOuter]
+
+
+E1 = E_bar[logicKeepOuter, :]
+
+#=
 
 logicKeepInner=logicKeepInner(logicKeepOuter,:);
 logicKeepInner=logical(logicKeepInner);
