@@ -351,29 +351,15 @@ for i=1:1:length(VE_bar)
     
 end
 
-#logicDeleteOuterX=logical(CXGap_length)';#converting to logical
-#logicDeleteInnerX1=logical(CXChamber)';
-#logicDeleteInnerX2=logical(CXChannel)';
-
 logicDeleteOuterX = CXGap_length .!= 0
 logicDeleteInnerX1 = CXChamber .!= 0
 logicDeleteInnerX2 = CXChannel .!= 0
 
 
-# Y and Z logic -  Inner and Outer _ simpler as not effected by no. of
-# chambers
+# Y and Z logic -  Inner and Outer _ simpler as not effected by no. of chambers
 
 logicDeleteOuterZ = [p[3] > (SLL_thickness_elements+Mat1_base_thickness_elements+Channel_height_elements+Channel_roof_thickness_elements) for p in VE_bar]
 logicKeepOuter = .!(logicDeleteOuterX .& logicDeleteOuterZ)
-
-#logicDeleteOuterZ=VE_bar(:,3)>(SLL_thickness_elements+Mat1_base_thickness_elements+Channel_height_elements+Channel_roof_thickness_elements);
-#logicKeepOuter=~(logicDeleteOuterX.*logicDeleteOuterZ);
-#logicKeepOuter=logical(logicKeepOuter);
-
-#logicDeleteInnerY1=~(VE_bar(:,2)>(Chamber_width_elements/2));
-#logicDeleteInnerY2=~(VE_bar(:,2)>(Channel_width_elements/2));
-#logicDeleteInnerZ1=(VE_bar(:,3)>(SLL_thickness_elements+Mat1_base_thickness_elements) & VE_bar(:,3)<(Height-Chamber_roof_thickness_elements));
-#logicDeleteInnerZ2=(VE_bar(:,3)>(SLL_thickness_elements+Mat1_base_thickness_elements) & VE_bar(:,3)<(SLL_thickness_elements+Mat1_base_thickness_elements+Channel_height_elements));
 
 logicDeleteInnerY1 = [!(p[2] > Chamber_width_elements / 2) for p in VE_bar]
 logicDeleteInnerY2 = [!(p[2] > Channel_width_elements / 2) for p in VE_bar]
@@ -388,76 +374,114 @@ logicDeleteInnerZ2 = [
     for p in VE_bar
 ]
 
-
-
-
 # uses logic vectors to choose which elements to keep
 logicKeepChamber = .!(logicDeleteInnerX1 .& logicDeleteInnerY1 .& logicDeleteInnerZ1)
 
 logicKeepChannel = .!(logicDeleteInnerX2 .& logicDeleteInnerY2 .& logicDeleteInnerZ2)
 
-
-#logicKeepChamber=~(logicDeleteInnerX1 == 1 & logicDeleteInnerY1 == 1 & logicDeleteInnerZ1 == 1);
-#logicKeepChannel=~(logicDeleteInnerX2 == 1 & logicDeleteInnerY2 == 1 & logicDeleteInnerZ2 == 1);
-#logicKeepInner=logicKeepChamber.*logicKeepChannel;
-
 logicKeepInner = logicKeepChamber .& logicKeepChannel
 logicKeepInner = logicKeepInner[logicKeepOuter]
 
 
-E1 = E_bar[logicKeepOuter, :]
-
-#=
-
-logicKeepInner=logicKeepInner(logicKeepOuter,:);
-logicKeepInner=logical(logicKeepInner);
-
-E1=E_bar(logicKeepOuter,:); #removes outer elements
-
-F1=element2patch(E1);
-[indBoundary1]=tesBoundary(F1);
-
-F2=element2patch(E1(logicKeepInner,:));#removes internal elements
-[indBoundary2]=tesBoundary(F2);
+E1 = E_bar[logicKeepOuter] # removes elements between chambers
+F1 = element2faces(E1) # gets faces of remaining elements
 
 
-Fb=F2(indBoundary2,:);
-Cb=7*ones(size(Fb,1),1);# Sample C matrix
+function boundary_face_indices(F) # Function to find boundary faces of a set of faces
+    counts = Dict{Tuple{Vararg{Int}} , Int}()
 
-for q=1:1:6
-    F_Cb1=Fb_bar(Cb_bar==q,:);
-    logicNow=all(ismember(Fb,F_Cb1),2);
-    Cb(logicNow)=q;
+    # Count occurrences of each face (order-independent)
+    for f in F
+        key = Tuple(sort(collect(f)))   # canonical representation
+        counts[key] = get(counts, key, 0) + 1
+    end
+
+    # Collect indices of faces that occur exactly once
+    idx = Int[]
+    for (i, f) in enumerate(F)
+        if counts[Tuple(sort(collect(f)))] == 1
+            push!(idx, i)
+        end
+    end
+
+    return idx
 end
 
-Cb(~any(ismember(Fb,F1(indBoundary1,:)),2))=0;#sets pressure faces to zero
+# Using boundary_face_indices to find outer faces 
+indBoundary1 =  boundary_face_indices(F1) # Finds the boundary faces of the elements to find the outer surfaces
+
+# Using boundary_face_indices to find outer faces and cavity faces
+F2 = element2faces(E1[logicKeepInner]) # removes internal elements to create inner shape
+indBoundary2 = boundary_face_indices(F2) # Finds the boundary faces of the elements to find the outer surfaces and inner surfaces
+Fb = F2[indBoundary2] # All boundary faces of the final shape
+
+# Assigning face colors based on original boundary faces
+Cb = fill(7, length(Fb))  # Sample C vector for face labelling
+
+sameface(f1, f2) = sort(collect(f1)) == sort(collect(f2)) # Function to check if two faces are the same
+
+for q in 1:6 # for each color in the original Cb_bar
+    Fq = Fb_bar[Cb_bar .== q]   # faces with color q
+    for (i, f) in enumerate(Fb)
+        for fq in Fq
+            if sameface(f, fq)
+                Cb[i] = q
+                break # saves time by exiting after first match
+            end
+        end
+    end
+end
+
+
+# Inline canonical function
+canonical(f) = Tuple(sort(collect(f)))
+
+# Create the set of faces to keep
+keep_set = Set(canonical.(F1[indBoundary1]))
+
+# Use set to assign inner faces to color 0
+for i in eachindex(Fb)
+    if !(canonical(Fb[i]) in keep_set)
+        Cb[i] = 0
+    end
+end
 
 # Remove unused nodes and clean up index matrices
- 
-[E,V,indFix2]=patchCleanUnused(E1(logicKeepInner,:),V_bar);
-Fb=indFix2(Fb);
+E,V,indFix2=remove_unused_vertices(E1[logicKeepInner],V_bar);
 
-F=indFix2(F2);
-=#
-
-#=
-plot_number=1;
-if plot_control==1 || ismember(plot_number,plot_vector)==1
-cFigure; 
-title('Unscaled simplified geometry','FontSize',fontSize);
-gpatch(Fb,V,Cb,'k',1);#0.5 transperancy normally hold on
-hold on;# plotV(V,'k.','MarkerSize',markerSize/2);
-axisGeom; 
-colormap(turbo(250)); icolorbar; 
-camlight headlight; 
-gdrawnow; 
+# Function to remap faces after vertex removal
+function remap_faces(F::Vector{QuadFace{Int}}, indFix::Vector{Int})
+    return [QuadFace(indFix[f[1]], indFix[f[2]], indFix[f[3]], indFix[f[4]]) for f in F]
 end
 
+# Using remap_faces to update Fb and F for new V
+Fb = remap_faces(Fb, indFix2)
+F = remap_faces(F2, indFix2)
+
+# Plotting 
+plot_number=1; # Plot of the unscaled mesh
+if plot_control == 1 || plot_number in plot_vector
+
+    Fp,Vp = separate_vertices(Fb,V) # Give each face its own point set 
+    Cp = simplex2vertexdata(Fp,Cb) # Convert face color data to vertex color data 
+
+    fig = Figure(size=(1200,1000))
+    ax1 = AxisGeom(fig[1, 1], title="Unscaled simplified geometry", azimuth=-pi/4, elevation=pi/4)
+    hp1 = meshplot!(ax1, Fp, Vp, strokewidth=1.0, color=Cp, alpha=0.5, colormap=Makie.Categorical(Makie.Reverse(:Spectral)))    
+    hp2 = scatter!(ax1, V ,markersize=markerSize/4,color=:black)
+    Colorbar(fig[1, 1][1, 2], hp1)
+    screen = display(GLMakie.Screen(), fig)
+
+end
+
+# Creating an unscaled V for easy reference later
+ymin = minimum(p -> p[1], V_bar)
+V_element = [Point(p[1], p[2]-ymin, p[3]) for p in V]#undoing centre alignment in Z axis
 
 
-V_element=V;#copy of V based on element data only - won't be scaled
-V_element(:,2)=V_element(:,2)-min(V_element(:,2));#undoing centre alignment in Z axis
+# Working this far 
 
+#=
 
 ## Defining the boundary conditions
 # The visualization of the model boundary shows colours. These labels can be used to define boundary conditions. 
