@@ -58,7 +58,7 @@ MeshCreationTool=2;#
 # mesh - this should reduce some convergence issues
 
 #SLL method
-SLL_control=1;
+SLL_control=3;
 # ==1: Adds a second material layer on the bottom of the pneunet of
 # specified thickness
 # ==2: Adds a thin shell element the base of the structure
@@ -458,12 +458,13 @@ end
 Fb = remap_faces(Fb, indFix2)
 F = remap_faces(F2, indFix2)
 
+# Plotting vertex based colour data
+Fp,Vp = separate_vertices(Fb,V) # Give each face its own point set 
+Cp = simplex2vertexdata(Fp,Cb) # Convert face color data to vertex color data 
+
 # Plotting 
 plot_number=1; # Plot of the unscaled mesh
 if plot_control == 1 || plot_number in plot_vector
-
-    Fp,Vp = separate_vertices(Fb,V) # Give each face its own point set 
-    Cp = simplex2vertexdata(Fp,Cb) # Convert face color data to vertex color data 
 
     fig = Figure(size=(1200,1000))
     ax1 = AxisGeom(fig[1, 1], title="Unscaled simplified geometry", azimuth=-pi/4, elevation=pi/4)
@@ -498,11 +499,10 @@ Spine_list=unique(vcat([collect(f) for f in Fb[Cb.==1]]...))#List of nodes along
 
 indForceNodes = intersect(bcTipList,Spine_list);#index list of Nodes where reaction force will be investigated
 
-# Working this far 
 
 #=
 
-## Defining Contact surfaces
+## Defining Contact surfaces - UPDATE LATER  - Continued beneath
 logicContactSurf=Cb==7;#chamber wall faces
 Normals=patchNormal(Fb,V);#gets normal vector of all facets
 
@@ -519,6 +519,8 @@ logicContactAllSecondarySets=logical(logicContactSurf.*logicContactNegX);
 Vm=patchCentre(Fb,V);# centre location of faces, where used here should not affect x axis as contact faces are parrallel, this is used to find the faces on the x ccordinate of interest
 ChamberAngleLeft={1 n-1};#empty for analysis of bending angle
 ChamberAngleRight={1 n-2};
+
+
 
 if n>1
 for q=1:1:n-1
@@ -562,60 +564,69 @@ end
 
 end
 
+=#
 
 ## SLL Layer
 if SLL_control == 1 # Thick SLL material
 
-VE=patchCentre(E,V); #
-logicSLL=VE(:,3)<SLL_thickness_elements;
-E1=E(~logicSLL,:);#main body
-E2=E(logicSLL,:);#SLL layer
-E=[E1;E2];
+    VE = [sum(V[i] for i in elem) / length(elem) for elem in E]# creats a list of element centres
+    logicSLL= [p[3] < SLL_thickness_elements for p in VE]
+    E1=E[.!logicSLL]#main body
+    E2=E[logicSLL]#SLL layer
+    E=[E1;E2]
+
 
 elseif SLL_control == 2 # Shell SLL material
 
-logic_FSLL_height=Cb==5;
-FSLL=Fb(logic_FSLL_height,:);
+    FSLL=Fb[Cb.==1]# Spine faces 
 
-E1=E;
-E2=FSLL;
-E={};
-E{1}=E1;
-E{2}=E2;
+    E1=E
+    E2=FSLL
 
-plot_number=3;
-if plot_control==1 || ismember(plot_number,plot_vector)==1
-cFigure;
-gpatch(Fb,V,Cb,'k',0.5);#0.5 transperancy normally hold on
-hold on; gpatch(E{2},V,'g'); # SLL shell elements
-title('SLL shell elements')
-axisGeom;
-end
+    E=(E1, E2) # E1 is the hex main body, E2 is the SLL quads
+
+    # Plotting
+    plot_number=3
+    if plot_control == 1 || plot_number in plot_vector
+
+        fig = Figure(size=(1200,1000))
+        ax1 = AxisGeom(fig[1, 1], title="SLL shell elements", azimuth=-pi/4, elevation=pi/4)
+        hp1 = meshplot!(ax1, Fp, Vp, strokewidth=1.0, color=Cp, alpha = 0.2, colormap=Makie.Categorical(Makie.Reverse(:Spectral)))    
+        hp2 = meshplot!(ax1, E[2], V, strokewidth=1.0, color=:green)
+        Colorbar(fig[1, 1][1, 2], hp1)
+        screen = display(GLMakie.Screen(), fig)
+
+    end
+
+
 
 elseif SLL_control == 3 
-FE=patchCentre(F,V); #   
-logic_FSLL_height=FE(:,3)==SLL_thickness_elements;
-Normals_internal=patchNormal(F,V);
-logic_FSLL_direction=Normals_internal(:,3)==1;
-logic_FSLL=logical(logic_FSLL_direction.*logic_FSLL_height);
-FSLL=F(logic_FSLL,:);
+    
+    FE =  [sum(V[i] for i in elem) / length(elem) for elem in F]
+    normals_internal =  facenormal(F,V)
+    keepSLL = [normals_internal[i][3] == 1 && FE[i][3] == SLL_thickness_elements for i in eachindex(F)]
+    FSLL = F[keepSLL]
 
-E1=E;
-E2=FSLL;
-E={};
-E{1}=E1;
-E{2}=E2;
+    E1 = E
+    E2 = FSLL
+    E = (E1, E2)
 
-plot_number=4;
-if plot_control==1 || ismember(plot_number,plot_vector)==1
-cFigure;
-gpatch(Fb,V,Cb,'k',0.5);#0.5 transperancy normally hold on
-hold on; gpatch(E{2},V,'g');#SLL shell elements
-title('SLL shell elements')
-axisGeom;
+    # Plotting
+    plot_number=4
+    if plot_control == 1 || plot_number in plot_vector
+
+        fig = Figure(size=(1200,1000))
+        ax1 = AxisGeom(fig[1, 1], title="SLL shell elements", azimuth=-pi/4, elevation=pi/4)
+        hp2 = meshplot!(ax1, E[2], V, strokewidth=1.0, color=:green)
+        hp1 = meshplot!(ax1, Fp, Vp, strokewidth=1.0, color=Cp, alpha = 0.2, colormap=Makie.Categorical(Makie.Reverse(:Spectral)))    
+        Colorbar(fig[1, 1][1, 2], hp1)
+        screen = display(GLMakie.Screen(), fig)
+
+    end
 end
 
-end
+
+#=
 
 ## 
 # Visualizing boundary conditions. Markers plotted on the semi-transparent
