@@ -626,11 +626,26 @@ elseif SLL_control == 3
 end
 
 
+## Visualizing boundary conditions. Markers plotted on the semi-transparent
+# model denote the nodes in the various boundary condition lists. 
+
+plot_number=5
+if plot_control == 1 || plot_number in plot_vector
+
+    fig = Figure(size=(1200,1000))
+    ax1 = AxisGeom(fig[1, 1], title="Boundary conditions", azimuth=-pi/4, elevation=pi/4)
+    hp2 = scatter!(ax1, V[bcSupportList] ,markersize=markerSize/4,color=:black)    
+    hp3 = meshplot!(ax1, F_pressure, V, strokewidth=1.0, color=:red)
+    hp4 = scatter!(ax1, V[indForceNodes] ,markersize=markerSize/4,color=:red)    
+    hp1 = meshplot!(ax1, Fp, Vp, strokewidth=1.0, color=:green, alpha = 0.2, )  
+    Legend(fig[1, 2], [hp2, hp3, hp4] , ["BC full support", "Pressure surfaces", "End points" ])
+    screen = display(GLMakie.Screen(), fig)
+
+end
+
+
 #=
 
-## 
-# Visualizing boundary conditions. Markers plotted on the semi-transparent
-# model denote the nodes in the various boundary condition lists. 
 plot_number=6;
 if plot_control==1 || ismember(plot_number,plot_vector)==1
 cFigure;
