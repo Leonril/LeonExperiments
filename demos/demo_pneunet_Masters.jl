@@ -1803,32 +1803,6 @@ end
 # The |febView| function can be used to view the xml structure in a MATLAB
 # figure window. 
 
-##
-# |febView(febio_spec); #Viewing the febio file|
-
-## Exporting the FEBio input file
-# Exporting the febio_spec structure to an FEBio input file is done using
-# the |febioStruct2xml| function. 
-
-febioStruct2xml(febio_spec,febioFebFileName); #Exporting to file and domNode
-# febView(febioFebFileName); 
-
-## Running the FEBio analysis
-# To run the analysis defined by the created FEBio input file the
-# |runMonitorFEBio| function is used. The input for this function is a
-# structure defining job settings e.g. the FEBio input file name. The
-# optional output runFlag informs the user if the analysis was run
-# succesfully. 
-
-febioAnalysis.run_filename=febioFebFileName; #The input file name
-febioAnalysis.run_logname=febioLogFileName; #The name for the log file
-febioAnalysis.disp_on=1; #Display information on the command window
-febioAnalysis.runMode=runMode;
-febioAnalysis.maxLogCheckTime=100; #Max log file checking time - EDITED 
-
-[runFlag]=runMonitorFEBio(febioAnalysis);#START FEBio NOW!!!!!!!!
-
-## Import FEBio results 
 =#
 
 # Write FEB file
@@ -1837,6 +1811,8 @@ XML.write(filename_FEB, doc)
 # #######
 # Run FEBio
 run_febio(filename_FEB,FEBIO_EXEC)
+# #######
+
 
 # Import results
 DD_disp = read_logfile(joinpath(saveDir,filename_disp))
@@ -1870,8 +1846,8 @@ s1_min, s1_max = get_elementData_limits(DD_stress)
 min_p = minp([minp(V) for V in VT])
 max_p = maxp([maxp(V) for V in VT])
 
-#######
-# Visualization
+
+## Visualisation
 stepStart = incRange[end]
 
 plot_number=7;
@@ -1879,7 +1855,6 @@ if plot_control==1 || ismember(plot_number,plot_vector)==1
     fig = Figure(size=(1200,800))
     ax1 = AxisGeom(fig[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
     hp1 = meshplot!(ax1, Fb, VT[end]; strokewidth=1.0, color=UT_mag[end], transparency=false, colormap = Reverse(:Spectral), colorrange=(0,maximum(ut_mag_max)))
-    #hp2 = meshplot!(ax1, F2, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
     Colorbar(fig[1, 2], hp1, label = "Displacement magnitude [mm]") 
     hSlider = Slider(fig[2, :], range = incRange, startvalue = stepStart,linewidth=30)
     on(hSlider.value) do stepIndex 
@@ -1896,136 +1871,35 @@ end
 
 plot_number=8
 if plot_control==1 || ismember(plot_number,plot_vector)==1
-Fall = element2faces(E)
-Fs,Vs = separate_vertices(Fall,VT[stepStart+1])
-S_Vs = simplex2vertexdata(Fs,S_F)
+    Fall = element2faces(E) # Get all faces in same order as E
+    S_E = [s[1] for s in DD_stress[stepStart].data] # Element stress
+    S_F = repeat(S_E,inner=6) # Element stress duplicated to be for each node on a hex element
 
-fig = Figure(size=(1200,800))    
-ax2 = AxisGeom(fig[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
-hp3 = meshplot!(ax2, Fs, Vs; strokewidth=1.0, color=S_Vs , colormap = :viridis, colorrange=(s1_min, s1_max))
-#hp4 = meshplot!(ax2, F2, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
-Colorbar(fig[1, 2], hp3, label = "S1 [MPa]") 
-hSlider = Slider(fig[2, :], range = incRange, startvalue = stepStart,linewidth=30)
-on(hSlider.value) do stepIndex 
-    S_E = [s[1] for s in DD_stress[stepIndex].data]
-    S_F = repeat(S_E,inner=6)
-    Fs,Vs = separate_vertices(Fall,VT[stepIndex+1])
-    S_Vs = simplex2vertexdata(Fs,S_F)
+    Fs,Vs = separate_vertices(Fall,VT[stepStart+1])
+    S_Vs = simplex2vertexdata(Fs,S_F) # Map element stress to vertex data
 
-    hp3[1] = GeometryBasics.Mesh(Vs, Fs)
-    hp3.color = S_Vs    
-    ax2.title = "Step: $stepIndex"
+    fig = Figure(size=(1200,800))    
+    ax2 = AxisGeom(fig[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+    hp3 = meshplot!(ax2, Fs, Vs; strokewidth=1.0, color=S_Vs , colormap = Reverse(:Spectral), colorrange=(s1_min, s1_max))
+    Colorbar(fig[1, 2], hp3, label = "S1 [MPa]") 
+    hSlider = Slider(fig[2, :], range = incRange, startvalue = stepStart,linewidth=30)
+    on(hSlider.value) do stepIndex 
+        S_E = [s[1] for s in DD_stress[stepIndex].data]
+        S_F = repeat(S_E,inner=6)
+        Fs,Vs = separate_vertices(Fall,VT[stepIndex+1])
+        S_Vs = simplex2vertexdata(Fs,S_F)
+
+        hp3[1] = GeometryBasics.Mesh(Vs, Fs)
+        hp3.color = S_Vs    
+        ax2.title = "Step: $stepIndex"
+    end
+
+    slidercontrol(hSlider,ax)
+    screen = display(GLMakie.Screen(), fig)
 end
 
-slidercontrol(hSlider,ax)
 
-screen = display(GLMakie.Screen(), fig)
-end
-
-
-#=
-if runFlag==1 #i.e. a succesful run
-    
-     ## 
-    # Importing nodal displacements from a log file
-    dataStruct=importFEBio_logfile(fullfile(savePath,febioLogFileName_disp),1,1);
-    
-    #Access data
-    N_disp_mat=dataStruct.data; #Displacement
-    timeVec=dataStruct.time; #Time
-    
-    #Create deformed coordinate set
-    V_DEF=N_disp_mat+repmat(V,[1 1 size(N_disp_mat,3)]);
-               
-    ## 
-    # Plotting the simulated results using |anim8| to visualize and animate
-    # deformations 
-    
-    DN_magnitude=sqrt(sum(N_disp_mat(:,:,end).^2,2)); #Current displacement magnitude
-        
-    # Create basic view and store graphics handle to initiate animation
-    plot_number=7;
-    if plot_control==1 || ismember(plot_number,plot_vector)==1
-    hf=cFigure; #Open figure  
-    gtitle([febioFebFileNamePart,': Press play to animate']);
-    title('Displacement magnitude [mm]','Interpreter','Latex')
-    hp=gpatch(Fb,V_DEF(:,:,end),DN_magnitude,'k',1); #Add graphics object to animate
-#     hp.Marker='.';
-#     hp.MarkerSize=markerSize2;
-    hp.FaceColor='interp';
-    
-    axisGeom(gca,fontSize); 
-    colormap(gjet(250)); colorbar;
-    caxis([0 max(DN_magnitude)]);    
-    axis(axisLim(V_DEF)); #Set axis limits statically    
-    camlight headlight;        
-        
-    # Set up animation features
-    animStruct.Time=timeVec; #The time vector    
-    for qt=1:1:size(N_disp_mat,3) #Loop over time increments        
-        DN_magnitude=sqrt(sum(N_disp_mat(:,:,qt).^2,2)); #Current displacement magnitude
-                
-        #Set entries in animation structure
-        animStruct.Handles{qt}=[hp hp]; #Handles of objects to animate
-        animStruct.Props{qt}={'Vertices','CData'}; #Properties of objects to animate
-        animStruct.Set{qt}={V_DEF(:,:,qt),DN_magnitude}; #Property values for to set in order to animate
-    end        
-    anim8(hf,animStruct); #Initiate animation feature    
-    drawnow;
-    end        
-    ##
-    # Importing element stress from a log file
-    dataStruct=importFEBio_logfile(fullfile(savePath,febioLogFileName_stress),1,1);
-    
-    #Access data
-    E_stress_mat=dataStruct.data;
-    
-    E_stress_mat(isnan(E_stress_mat))=0;
-    
-    ## 
-    # Plotting the simulated results using |anim8| to visualize and animate
-    # deformations 
-     if SLL_control==1
-    [CV]=faceToVertexMeasure(E,V,E_stress_mat(:,:,end));
-     elseif SLL_control>=2
-    [CV]=faceToVertexMeasure(E1,V,E_stress_mat(:,:,end));
-#     CV{1}=faceToVertexMeasure(E1,V,E_stress_mat(:,:,end));
-#     CV{2}=faceToVertexMeasure(E2,V,E_stress_mat(:,:,end));
-    end
-    
-    # Create basic view and store graphics handle to initiate animation
-    plot_number=8;
-    if plot_control==1 || ismember(plot_number,plot_vector)==1
-    hf=cFigure; #Open figure  
-    gtitle([febioFebFileNamePart,': Press play to animate']);
-    title('$\sigma_{1}$ [MPa]','Interpreter','Latex')
-    hp=gpatch(Fb,V_DEF(:,:,end),CV,'k',1); #Add graphics object to animate
-#     hp.Marker='.';
-#     hp.MarkerSize=markerSize2;
-    hp.FaceColor='interp';
-    
-    axisGeom(gca,fontSize); 
-    colormap(gjet(250)); colorbar;
-    caxis([min(E_stress_mat(:)) max(E_stress_mat(:))]);    
-    axis(axisLim(V_DEF)); #Set axis limits statically    
-    camlight headlight;        
-        
-    # Set up animation features
-    animStruct.Time=timeVec; #The time vector    
-    for qt=1:1:size(N_disp_mat,3) #Loop over time increments        
-        if SLL_control==1
-        [CV]=faceToVertexMeasure(E,V,E_stress_mat(:,:,qt));
-        elseif SLL_control>=2
-        [CV]=faceToVertexMeasure(E1,V,E_stress_mat(:,:,qt));
-        end    
-        #Set entries in animation structure
-        animStruct.Handles{qt}=[hp hp]; #Handles of objects to animate
-        animStruct.Props{qt}={'Vertices','CData'}; #Properties of objects to animate
-        animStruct.Set{qt}={V_DEF(:,:,qt),CV}; #Property values for to set in order to animate
-    end        
-    anim8(hf,animStruct); #Initiate animation feature    
-    drawnow;
-    end
+#= UPDATE LATER: Force and Bending Angle Results processing
 
 
 ## Bending Angle of Each Chamber
@@ -2119,9 +1993,4 @@ hforce=plot(timeVec,Force_total,'b');
 #title('Nodal Force ()');
 xlabel('Time (s)'); ylabel('Total End-Node Force in z-direction (N)');
 end
-
-end # successful run check
-
-
-
 =#
