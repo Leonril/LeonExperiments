@@ -476,7 +476,7 @@ if plot_control == 1 || plot_number in plot_vector
 end
 
 # Creating an unscaled V for easy reference later
-ymin = minimum(p -> p[1], V_bar)
+ymin = minimum(p -> p[2], V_bar)
 V_element = [Point(p[1], p[2]-ymin, p[3]) for p in V]#undoing centre alignment in Z axis
 
 
@@ -644,151 +644,114 @@ if plot_control == 1 || plot_number in plot_vector
 end
 
 
-#=
-
-plot_number=6;
-if plot_control==1 || ismember(plot_number,plot_vector)==1
-cFigure;
-title('Boundary conditions','FontSize',fontSize);
-xlabel('X','FontSize',fontSize); ylabel('Y','FontSize',fontSize); zlabel('Z','FontSize',fontSize);
-hold on;
-
-gpatch(Fb,V,Cb,'none',0.35);#normally set transp to 0.5, 0.05 shows pressure face better
-hl(1)=plotV(V(bcSupportList,:),'k.','MarkerSize',15);
-hl(2)=gpatch(F_pressure,V,'r','k',1);
-hl(3)=plotV(V(indForceNodes,:),'r.','MarkerSize',15);
-# hl(3)=gpatch(F2,V,'c','k',1);
-
-patchNormPlot(F_pressure,V);
-legend(hl,{'BC full support','Pressure surface', 'End Points'});#'SLLsurface'
-legend('Location','northeastoutside')
-axisGeom(gca,fontSize);
-camlight headlight; #icolorbar;
-gdrawnow; 
-end
-
-
 ## Scaling to match desired geometry
 #Creating vectors of needed Coordinates
-V_height=zeros(1,Height); #creating empty vectors to reduce memory
-V_length=zeros(1,Length);
-V_width=zeros(1,Width);
+V_height=zeros(1,Height)
+V_length=zeros(1,Length)
+V_width=zeros(1,Width)
 
 #Height scaling vector creation
-current_height=0;
-for i=1:1:Height
+current_height=0
+for i in 1:Height
     
     if i <= SLL_thickness_elements
-        V_height(i)=current_height+(SLL_thickness*(1/SLL_thickness_elements));
+        V_height[i]=current_height+(SLL_thickness*(1/SLL_thickness_elements))
         
     elseif i <= Mat1_base_thickness_elements+SLL_thickness_elements
-        V_height(i)=current_height+(Mat1_base_thickness*(1/Mat1_base_thickness_elements));
+        V_height[i]=current_height+(Mat1_base_thickness*(1/Mat1_base_thickness_elements))
         
     elseif i <= Channel_height_elements+Mat1_base_thickness_elements+SLL_thickness_elements
-        V_height(i)=current_height+(Channel_height*(1/Channel_height_elements));
+        V_height[i]=current_height+(Channel_height*(1/Channel_height_elements))
         
     elseif i <= Channel_roof_thickness_elements+Channel_height_elements+Mat1_base_thickness_elements+SLL_thickness_elements 
-        V_height(i)=current_height+(Channel_roof_thickness*(1/Channel_roof_thickness_elements));
+        V_height[i]=current_height+(Channel_roof_thickness*(1/Channel_roof_thickness_elements))
         
     elseif i <= Chamber_height_elements+Mat1_base_thickness_elements+SLL_thickness_elements
-        V_height(i)=current_height+((Chamber_height-Channel_height-Channel_roof_thickness)*(1/(Chamber_height_elements-Channel_height_elements-Channel_roof_thickness_elements)));
+        V_height[i]=current_height+((Chamber_height-Channel_height-Channel_roof_thickness)*(1/(Chamber_height_elements-Channel_height_elements-Channel_roof_thickness_elements)))
         
     elseif  i <= Chamber_roof_thickness_elements+Chamber_height_elements+Mat1_base_thickness_elements+SLL_thickness_elements
-        V_height(i)=current_height+(Chamber_roof_thickness*(1/Chamber_roof_thickness_elements));
+        V_height[i]=current_height+(Chamber_roof_thickness*(1/Chamber_roof_thickness_elements))
         
     end
-    current_height=V_height(i);
+    global current_height=V_height[i]
     
 end
-V_height=[0 V_height];
+V_height=[0 V_height]
 
-#Width scaling vector creation
-V(:,2)=V(:,2)-min(V(:,2));#undoes centre alignment on Y axis
+# Width scaling vector creation
+V = [Point(p[1], p[2]-ymin, p[3]) for p in V] # undoes centre alignment on y axis
+
 current_width=0;
-for i=1:1:Width
+for i in 1:Width
     
     if i <= Side_wall_thickness_elements
-        V_width(i)=current_width+(Side_wall_thickness*(1/Side_wall_thickness_elements));
+        V_width[i]=current_width+(Side_wall_thickness*(1/Side_wall_thickness_elements));
     
     elseif i <= Side_wall_thickness_elements+((Chamber_width_elements/2)-(Channel_width_elements/2))
-        V_width(i)=current_width+((Chamber_width-Channel_width)*(1/(Chamber_width_elements-Channel_width_elements)));
+        V_width[i]=current_width+((Chamber_width-Channel_width)*(1/(Chamber_width_elements-Channel_width_elements)));
         
     elseif i <= Side_wall_thickness_elements+((Chamber_width_elements/2)+(Channel_width_elements/2))
-        V_width(i)=current_width+((Channel_width)*(1/(Channel_width_elements)));
+        V_width[i]=current_width+((Channel_width)*(1/(Channel_width_elements)));
         
     elseif i <= Side_wall_thickness_elements+Chamber_width_elements
-        V_width(i)=current_width+((Chamber_width-Channel_width)*(1/(Chamber_width_elements-Channel_width_elements)));
+        V_width[i]=current_width+((Chamber_width-Channel_width)*(1/(Chamber_width_elements-Channel_width_elements)));
     
     elseif i<= (2*Side_wall_thickness_elements)+Chamber_width_elements
-        V_width(i)=current_width+(Side_wall_thickness*(1/Side_wall_thickness_elements));
+        V_width[i]=current_width+(Side_wall_thickness*(1/Side_wall_thickness_elements));
     end
-    current_width=V_width(i);
+    global current_width=V_width[i];
     
 end
-V_width=[0 V_width];
+V_width=[0 V_width]
 
 #Length scaling vector creation
 current_length=0;
-for i=1:1:Length
+for i in 1:Length
     itemp=i;
-    total_chamber_length_elements=((2*Chamber_wt_elements)+Chamber_length_elements+Gap_length_elements);
-    chamber_count=floor(itemp/total_chamber_length_elements);
-    itemp=itemp-(chamber_count*((2*Chamber_wt_elements)+Chamber_length_elements+Gap_length_elements));
+    total_chamber_length_elements=((2*Chamber_wt_elements)+Chamber_length_elements+Gap_length_elements)
+    chamber_count=floor(itemp/total_chamber_length_elements)
+    itemp=itemp-(chamber_count*((2*Chamber_wt_elements)+Chamber_length_elements+Gap_length_elements))
     
     
         if itemp == 0
-            V_length(i)=current_length+(Gap_length*(1/Gap_length_elements));
+            V_length[i]=current_length+(Gap_length*(1/Gap_length_elements));
             
         elseif itemp <= Chamber_wt_elements
-            V_length(i)=current_length+(Chamber_wt*(1/Chamber_wt_elements));
+            V_length[i]=current_length+(Chamber_wt*(1/Chamber_wt_elements));
 
         elseif itemp <= Chamber_wt_elements+Chamber_length_elements
-            V_length(i)=current_length+(Chamber_length*(1/Chamber_length_elements));
+            V_length[i]=current_length+(Chamber_length*(1/Chamber_length_elements));
 
         elseif itemp <= (2*Chamber_wt_elements)+Chamber_length_elements
-            V_length(i)=current_length+(Chamber_wt*(1/Chamber_wt_elements));
+            V_length[i]=current_length+(Chamber_wt*(1/Chamber_wt_elements));
 
         elseif itemp <= Gap_length_elements+(2*Chamber_wt_elements)+Chamber_length_elements
-            V_length(i)=current_length+(Gap_length*(1/Gap_length_elements));
+            V_length[i]=current_length+(Gap_length*(1/Gap_length_elements));
 
         end
-    
-    
-    current_length=V_length(i);
+      global current_length=V_length[i];
 end
-V_length=[0 V_length];
+V_length=[0 V_length]
 
+# Scaling V
+V = [Point(V_length[Int(p[1]) + 1], V_width[Int(p[2]) + 1], V_height[Int(p[3]) + 1],) for p in V]
 
-for i=1:1:size(V,1) #applies true coordinate to element based system
-    v_indexX=V(i,1)+1;#takes the element coordinate as an index to true value vectors
-    v_indexY=V(i,2)+1;
-    v_indexZ=V(i,3)+1;
-    
-    VXreal=V_length(v_indexX);
-    VYreal=V_width(v_indexY);
-    VZreal=V_height(v_indexZ);
-    
-    V(i,1)=VXreal;
-    V(i,2)=VYreal;
-    V(i,3)=VZreal;
-    
+# Plotting 
+Fp,Vp = separate_vertices(Fb,V) # Give each face its own point set 
+Cp = simplex2vertexdata(Fp,Cb) # Convert face color data to vertex color data 
+
+plot_number=6 # Plot of the unscaled mesh
+if plot_control == 1 || plot_number in plot_vector
+
+    fig = Figure(size=(1200,1000))
+    ax1 = AxisGeom(fig[1, 1], title="Scaled geometry", azimuth=-pi/4, elevation=pi/4)
+    hp1 = meshplot!(ax1, Fp, Vp, strokewidth=1.0, color=Cp, colormap=Makie.Categorical(Makie.Reverse(:Spectral)))    
+    hp2 = scatter!(ax1, V ,markersize=markerSize/4,color=:black)
+    Colorbar(fig[1, 1][1, 2], hp1)
+    screen = display(GLMakie.Screen(), fig)
+
 end
-
-plot_number=5;
-if plot_control==1 || ismember(plot_number,plot_vector)==1
-cFigure; #Displays scaled geometry of two cells
-title('Scaled geometry','FontSize',fontSize);
-gpatch(Fb,V,Cb,'k',0.5);#0.5 transperancy normally hold on
-hold on; plotV(V,'k.','MarkerSize',markerSize/2);
-axisGeom; 
-colormap(turbo(250)); icolorbar; 
-# camlight headlight; 
-gdrawnow; 
-end
-
-
-
-
+#=
 
 
 ## Object
