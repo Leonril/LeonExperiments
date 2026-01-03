@@ -1838,6 +1838,91 @@ XML.write(filename_FEB, doc)
 # Run FEBio
 run_febio(filename_FEB,FEBIO_EXEC)
 
+# Import results
+DD_disp = read_logfile(joinpath(saveDir,filename_disp))
+DD_stress = read_logfile(joinpath(saveDir,filename_stress))
+numInc = length(DD_disp)
+incRange = 0:1:numInc-1
+
+# Create time varying vectors
+UT = fill(V,numInc) 
+VT = fill(V,numInc)
+UT_mag = fill(zeros(length(V)),numInc)
+ut_mag_max = zeros(numInc)
+@inbounds for i in 0:1:numInc-1    
+    UT[i+1] = [Point{3,Float64}(u) for u in DD_disp[i].data]
+    VT[i+1] += UT[i+1]
+    UT_mag[i+1] = norm.(UT[i+1])
+    ut_mag_max[i+1] = maximum(UT_mag[i+1]) 
+end
+
+function get_elementData_limits(D)
+    s1_max = -Inf
+    s1_min = Inf
+    @inbounds for i in 0:1:length(D)-1            
+        S = [s[1] for s in D[i].data]
+        s1_max = max(s1_max, maximum(S))
+        s1_min = min(s1_min, minimum(S))
+    end
+    return s1_min, s1_max
+end
+s1_min, s1_max = get_elementData_limits(DD_stress)
+min_p = minp([minp(V) for V in VT])
+max_p = maxp([maxp(V) for V in VT])
+
+#######
+# Visualization
+stepStart = incRange[end]
+
+plot_number=7;
+if plot_control==1 || ismember(plot_number,plot_vector)==1
+    fig = Figure(size=(1200,800))
+    ax1 = AxisGeom(fig[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+    hp1 = meshplot!(ax1, Fb, VT[end]; strokewidth=1.0, color=UT_mag[end], transparency=false, colormap = Reverse(:Spectral), colorrange=(0,maximum(ut_mag_max)))
+    #hp2 = meshplot!(ax1, F2, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
+    Colorbar(fig[1, 2], hp1, label = "Displacement magnitude [mm]") 
+    hSlider = Slider(fig[2, :], range = incRange, startvalue = stepStart,linewidth=30)
+    on(hSlider.value) do stepIndex 
+        hp1[1] = GeometryBasics.Mesh(VT[stepIndex+1],Fb)
+        hp1.color = UT_mag[stepIndex+1]
+        ax1.title = "Step: $stepIndex"
+
+    end
+
+    slidercontrol(hSlider,ax)
+    screen = display(GLMakie.Screen(), fig)
+end
+
+
+plot_number=8
+if plot_control==1 || ismember(plot_number,plot_vector)==1
+Fall = element2faces(E)
+Fs,Vs = separate_vertices(Fall,VT[stepStart+1])
+S_Vs = simplex2vertexdata(Fs,S_F)
+
+fig = Figure(size=(1200,800))    
+ax2 = AxisGeom(fig[1, 1], title = "Step: $stepStart", limits=(min_p[1], max_p[1], min_p[2], max_p[2], min_p[3], max_p[3]))
+hp3 = meshplot!(ax2, Fs, Vs; strokewidth=1.0, color=S_Vs , colormap = :viridis, colorrange=(s1_min, s1_max))
+#hp4 = meshplot!(ax2, F2, VT[end]; strokewidth=0.0, color=RGBA{Float64}(1.0, 1.0, 1.0, 0.25), transparency=true)
+Colorbar(fig[1, 2], hp3, label = "S1 [MPa]") 
+hSlider = Slider(fig[2, :], range = incRange, startvalue = stepStart,linewidth=30)
+on(hSlider.value) do stepIndex 
+    S_E = [s[1] for s in DD_stress[stepIndex].data]
+    S_F = repeat(S_E,inner=6)
+    Fs,Vs = separate_vertices(Fall,VT[stepIndex+1])
+    S_Vs = simplex2vertexdata(Fs,S_F)
+
+    hp3[1] = GeometryBasics.Mesh(Vs, Fs)
+    hp3.color = S_Vs    
+    ax2.title = "Step: $stepIndex"
+end
+
+slidercontrol(hSlider,ax)
+
+screen = display(GLMakie.Screen(), fig)
+end
+
+
 #=
 if runFlag==1 #i.e. a succesful run
     
