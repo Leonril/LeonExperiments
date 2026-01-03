@@ -58,7 +58,7 @@ MeshCreationTool=2;#
 # mesh - this should reduce some convergence issues
 
 #SLL method
-SLL_control=3;
+SLL_control=1;
 # ==1: Adds a second material layer on the bottom of the pneunet of
 # specified thickness
 # ==2: Adds a thin shell element the base of the structure
@@ -69,14 +69,14 @@ SLL_control=3;
 #Object type
 object_control=1;
 # ==1: Pneunet fixed in Z axis at time=1. Least computationally expensive
-# ==2: Rigid body. At a specificed Z coordinate or plane, a ridid face is added to restrict bending and simulate a rigid object.
+# ==2: Rigid body. At a specificed Z coordinate or plane, a rigid face is added to restrict bending and simulate a rigid object.
 # ==3: Soft object: A 3D soft body is modelled. Most computationally expensive.
 softObject_shape=1;
 # ==1: Half of a sphere is modelled at a specified height.
 # ==2: Half of a cube is modelled, at specified height. 
 
 #Chamber Wall Contact
-contact_control=2;
+contact_control=1;
 # ==1: Contact modelling inactive
 # ==2: Contact modelling active
 
@@ -93,25 +93,24 @@ stl_control=0;
 # ==2: Moulds (for moulding pneunet, as per SLL method 3)
 
 
+## Setting FEBio name
+const FEBIO_EXEC = "febio4" # FEBio executable
+
 ## File saving locations
-# Path names
+# Define file and directory names
+saveDir = joinpath(febiojl_dir(),"assets","temp") # Main directory to save FEBio input and output files
+if !isdir(saveDir)
+    mkdir(saveDir)      
+end
 
-#= UPDATE
-defaultFolder = fileparts(fileparts(mfilename('fullpath')));
-savePath=fullfile(defaultFolder,'data','temp');
-=#
+filename_FEB = joinpath(saveDir,"febioInputFile_01.feb")   # The main FEBio input file
+filename_xplt = joinpath(saveDir,"febioInputFile_01.xplt") # The XPLT file for viewing results in FEBioStudio
+filename_log = joinpath(saveDir,"febioInputFile_01_LOG.txt") # The log file featuring the full FEBio terminal output stream
+filename_disp = "febioInputFile_01_DISP.txt" # A log file for results saved in same directory as .feb file  e.g. nodal displacements
+filename_stress = "febioInputFile_01_STRESS.txt"
+filename_force = "febioInputFile_01_REACTION_FORCE.txt"
 
-
-# Defining file names    UPDATE
-
-#=
-febioFebFileNamePart='tempModel';
-febioFebFileName=fullfile(savePath,[febioFebFileNamePart,'.feb']); #FEB file name
-febioLogFileName=fullfile(savePath,[febioFebFileNamePart,'.txt']); #FEBio log file name
-febioLogFileName_disp=[febioFebFileNamePart,'_disp_out.txt']; #Log file name for exporting displacement
-febioLogFileName_stress=[febioFebFileNamePart,'_stress_out.txt']; #Log file name for exporting stress
-febioLogFileName_force=[febioFebFileNamePart,'_force_out.txt']; #Log file name for exporting force
-
+#= UPDATE - remove if stl creation not included or else convert
 STL_Pnuenet_Body=fullfile(savePath,[febioFebFileNamePart,'_PneunetBody.stl']); #Log file name for exporting .stl
 STL_Pnuenet_SLL=fullfile(savePath,[febioFebFileNamePart,'_PneunetSLL.stl']); #Log file name for exporting .stl
 
@@ -146,8 +145,8 @@ fric_coeff=0;
 
 ## Load Inputs
 #Load
-designPressureAngle=0.008; #(MPa)-target pressure for required bend
-designPressureForce=0.014; #0.1
+designPressureAngle=0.008 #(MPa)-target pressure for required bend
+designPressureForce=0.014 #0.1
 
 
 ## Pneunet Material Properties
@@ -166,8 +165,8 @@ k_factor=100; #Bulk modulus factor
 k1=c1*k_factor; #Bulk modulus
 
 #Paper
-E_material2=6.5*(10^3);
-Poissons_material2=0.2;
+E_material2=6.5*(10^3)
+Poissons_material2=0.2
 
 #Backup sample material 2
 c2=c1*50; #Shear-modulus-like parameter
@@ -870,7 +869,7 @@ elseif object_control == 3
     axisGeom;
 end
 
-## .stl file creation
+## .stl file creation - UPDATE LATER will probably cut this code or move to a function
 # Pneunet body .stl files
 if stl_control==1# if 3D printing .stls are needed
     [F_PneunetBody,~,~]=element2patch(E1,[],'hex8');
